@@ -14,12 +14,7 @@
     "start:prod": "node dist/main",
     "create-admin": "ts-node -r tsconfig-paths/register src/scripts/create-admin.ts",
     "verify-auth": "ts-node -r tsconfig-paths/register src/scripts/verify-auth.ts",
-    "lint": "eslint \"{src,apps,libs,test}/**/*.ts\" --fix",
-    "test": "jest",
-    "test:watch": "jest --watch",
-    "test:cov": "jest --coverage",
-    "test:debug": "node --inspect-brk -r tsconfig-paths/register -r ts-node/register node_modules/.bin/jest --runInBand",
-    "test:e2e": "jest --config ./test/jest-e2e.json"
+    "lint": "eslint \"{src,apps,libs,test}/**/*.ts\" --fix"
   },
   "dependencies": {
     "@nestjs/common": "^11.0.1",
