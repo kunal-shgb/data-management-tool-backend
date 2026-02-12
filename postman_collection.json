@@ -1,0 +1,318 @@
+{
+    "info": {
+        "_postman_id": "a3f8c8d1-724d-4e92-9c87-8e6f1a8b2c4e",
+        "name": "Data Management Tool API",
+        "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+    },
+    "item": [
+        {
+            "name": "Auth",
+            "item": [
+                {
+                    "name": "Login",
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": {
+                                "exec": [
+                                    "var jsonData = pm.response.json();",
+                                    "if (jsonData.access_token) {",
+                                    "    pm.collectionVariables.set(\"token\", jsonData.access_token);",
+                                    "}"
+                                ],
+                                "type": "text/javascript"
+                            }
+                        }
+                    ],
+                    "request": {
+                        "method": "POST",
+                        "header": [],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n    \"username\": \"Kunal\",\n    \"password\": \"Hellokunal@123\"\n}",
+                            "options": {
+                                "raw": {
+                                    "language": "json"
+                                }
+                            }
+                        },
+                        "url": {
+                            "raw": "{{baseUrl}}/auth/login",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "auth",
+                                "login"
+                            ]
+                        }
+                    },
+                    "response": []
+                }
+            ]
+        },
+        {
+            "name": "IMPS",
+            "item": [
+                {
+                    "name": "Ingest CBS Data",
+                    "request": {
+                        "method": "POST",
+                        "header": [],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "[\n    {\n        \"rrn\": \"123456789012\",\n        \"utr\": \"IMPSUTR001\",\n        \"amount\": 1000.50,\n        \"transactionDate\": \"2026-02-12T15:00:00Z\",\n        \"senderAccount\": \"ACC123\",\n        \"receiverAccount\": \"ACC456\",\n        \"status\": \"SUCCESS\"\n    }\n]",
+                            "options": {
+                                "raw": {
+                                    "language": "json"
+                                }
+                            }
+                        },
+                        "url": {
+                            "raw": "{{baseUrl}}/api/imps/cbs/ingest",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "api",
+                                "imps",
+                                "cbs",
+                                "ingest"
+                            ]
+                        }
+                    },
+                    "response": []
+                },
+                {
+                    "name": "Ingest NPCI Data",
+                    "request": {
+                        "method": "POST",
+                        "header": [],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "[\n    {\n        \"rrn\": \"123456789012\",\n        \"utr\": \"IMPSUTR001\",\n        \"amount\": 1000.50,\n        \"transactionDate\": \"2026-02-12T15:02:00Z\",\n        \"senderIfsc\": \"IFSC001\",\n        \"receiverIfsc\": \"IFSC002\",\n        \"status\": \"SUCCESS\"\n    }\n]",
+                            "options": {
+                                "raw": {
+                                    "language": "json"
+                                }
+                            }
+                        },
+                        "url": {
+                            "raw": "{{baseUrl}}/api/imps/npci/ingest",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "api",
+                                "imps",
+                                "npci",
+                                "ingest"
+                            ]
+                        }
+                    },
+                    "response": []
+                },
+                {
+                    "name": "Run Reconciliation",
+                    "request": {
+                        "method": "POST",
+                        "header": [],
+                        "url": {
+                            "raw": "{{baseUrl}}/api/imps/reconcile",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "api",
+                                "imps",
+                                "reconcile"
+                            ]
+                        }
+                    },
+                    "response": []
+                },
+                {
+                    "name": "Get Reconciliations",
+                    "request": {
+                        "method": "GET",
+                        "header": [],
+                        "url": {
+                            "raw": "{{baseUrl}}/api/imps/reconciliations",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "api",
+                                "imps",
+                                "reconciliations"
+                            ]
+                        }
+                    },
+                    "response": []
+                },
+                {
+                    "name": "Get Unmatched",
+                    "request": {
+                        "method": "GET",
+                        "header": [],
+                        "url": {
+                            "raw": "{{baseUrl}}/api/imps/unmatched",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "api",
+                                "imps",
+                                "unmatched"
+                            ]
+                        }
+                    },
+                    "response": []
+                }
+            ]
+        },
+        {
+            "name": "UPI",
+            "item": [
+                {
+                    "name": "Ingest CBS Data",
+                    "request": {
+                        "method": "POST",
+                        "header": [],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "[\n    {\n        \"rrn\": \"987654321098\",\n        \"upiTransactionId\": \"UPITXN001\",\n        \"amount\": 500.00,\n        \"transactionDate\": \"2026-02-12T16:00:00Z\",\n        \"payerVpa\": \"payer@upi\",\n        \"payeeVpa\": \"payee@upi\",\n        \"status\": \"SUCCESS\"\n    }\n]",
+                            "options": {
+                                "raw": {
+                                    "language": "json"
+                                }
+                            }
+                        },
+                        "url": {
+                            "raw": "{{baseUrl}}/api/upi/cbs/ingest",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "api",
+                                "upi",
+                                "cbs",
+                                "ingest"
+                            ]
+                        }
+                    },
+                    "response": []
+                },
+                {
+                    "name": "Ingest NPCI Data",
+                    "request": {
+                        "method": "POST",
+                        "header": [],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "[\n    {\n        \"rrn\": \"987654321098\",\n        \"upiTransactionId\": \"UPITXN001\",\n        \"amount\": 500.00,\n        \"transactionDate\": \"2026-02-12T16:01:00Z\",\n        \"payerVpa\": \"payer@upi\",\n        \"payeeVpa\": \"payee@upi\",\n        \"status\": \"SUCCESS\"\n    }\n]",
+                            "options": {
+                                "raw": {
+                                    "language": "json"
+                                }
+                            }
+                        },
+                        "url": {
+                            "raw": "{{baseUrl}}/api/upi/npci/ingest",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "api",
+                                "upi",
+                                "npci",
+                                "ingest"
+                            ]
+                        }
+                    },
+                    "response": []
+                },
+                {
+                    "name": "Run Reconciliation",
+                    "request": {
+                        "method": "POST",
+                        "header": [],
+                        "url": {
+                            "raw": "{{baseUrl}}/api/upi/reconcile",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "api",
+                                "upi",
+                                "reconcile"
+                            ]
+                        }
+                    },
+                    "response": []
+                },
+                {
+                    "name": "Get Reconciliations",
+                    "request": {
+                        "method": "GET",
+                        "header": [],
+                        "url": {
+                            "raw": "{{baseUrl}}/api/upi/reconciliations",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "api",
+                                "upi",
+                                "reconciliations"
+                            ]
+                        }
+                    },
+                    "response": []
+                }
+            ]
+        }
+    ],
+    "auth": {
+        "type": "bearer",
+        "bearer": [
+            {
+                "key": "token",
+                "value": "{{token}}",
+                "type": "string"
+            }
+        ]
+    },
+    "event": [
+        {
+            "listen": "prerequest",
+            "script": {
+                "type": "text/javascript",
+                "exec": [
+                    ""
+                ]
+            }
+        },
+        {
+            "listen": "test",
+            "script": {
+                "type": "text/javascript",
+                "exec": [
+                    ""
+                ]
+            }
+        }
+    ],
+    "variable": [
+        {
+            "key": "baseUrl",
+            "value": "http://localhost:3000",
+            "type": "string"
+        },
+        {
+            "key": "token",
+            "value": "",
+            "type": "string"
+        }
+    ]
+}
