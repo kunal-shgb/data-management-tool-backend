@@ -84,21 +84,22 @@
                     "response": []
                 },
                 {
-                    "name": "Ingest NPCI Data",
+                    "name": "Upload NPCI Data",
                     "request": {
                         "method": "POST",
                         "header": [],
                         "body": {
-                            "mode": "raw",
-                            "raw": "[\n    {\n        \"rrn\": \"123456789012\",\n        \"utr\": \"IMPSUTR001\",\n        \"amount\": 1000.50,\n        \"transactionDate\": \"2026-02-12T15:02:00Z\",\n        \"senderIfsc\": \"IFSC001\",\n        \"receiverIfsc\": \"IFSC002\",\n        \"status\": \"SUCCESS\"\n    }\n]",
-                            "options": {
-                                "raw": {
-                                    "language": "json"
+                            "mode": "formdata",
+                            "formdata": [
+                                {
+                                    "key": "file",
+                                    "type": "file",
+                                    "src": []
                                 }
-                            }
+                            ]
                         },
                         "url": {
-                            "raw": "{{baseUrl}}/api/imps/npci/ingest",
+                            "raw": "{{baseUrl}}/api/imps/npci/upload",
                             "host": [
                                 "{{baseUrl}}"
                             ],
@@ -106,7 +107,7 @@
                                 "api",
                                 "imps",
                                 "npci",
-                                "ingest"
+                                "upload"
                             ]
                         }
                     },

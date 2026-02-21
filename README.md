@@ -31,6 +31,17 @@
 $ npm install
 ```
 
+## Python Service Setup
+
+The NestJS backend relies on a Python FastAPI microservice to parse transaction data from TXT, CSV, and Excel files. 
+You must run this service concurrently on port 8000.
+
+```bash
+$ cd python-service
+$ pip install -r requirements.txt
+$ uvicorn main:app --reload
+```
+
 ## Compile and run the project
 
 ```bash

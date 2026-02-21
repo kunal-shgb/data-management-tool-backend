@@ -1,6 +1,8 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, BadRequestException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, Between } from 'typeorm';
+import axios from 'axios';
+import FormData from 'form-data';
 import { ImpsCbsTransaction } from './entities/imps-cbs-transaction.entity';
 import { ImpsNpciTransaction } from './entities/imps-npci-transaction.entity';
 import { ImpsReconciliation } from './entities/imps-reconciliation.entity';
@@ -31,14 +33,52 @@ export class ImpsService {
         return await this.cbsTransactionRepo.save(entities);
     }
 
-    async ingestNpciTransactions(transactions: CreateImpsNpciTransactionDto[]) {
-        const entities = transactions.map(dto =>
-            this.npciTransactionRepo.create({
-                ...dto,
-                transactionDate: new Date(dto.transactionDate),
-            })
-        );
-        return await this.npciTransactionRepo.save(entities);
+    async uploadNpciData(file: Express.Multer.File) {
+        if (!file.buffer) {
+            throw new BadRequestException('File buffer is empty');
+        }
+
+        try {
+            const formData = new FormData();
+            formData.append('file', file.buffer, {
+                filename: file.originalname,
+                contentType: file.mimetype,
+            });
+
+            const response = await axios.post('http://localhost:8000/process-npci-file', formData, {
+                headers: formData.getHeaders(),
+            });
+
+            const { transactions, successCount, skippedCount, message } = response.data;
+
+            const entities = transactions.map((t: any) => this.npciTransactionRepo.create({
+                ...t,
+                transactionDate: t.transactionDate ? new Date(t.transactionDate) : null,
+            }));
+
+            // Save in batches
+            if (entities.length > 0) {
+                const batchSize = 1000;
+                for (let i = 0; i < entities.length; i += batchSize) {
+                    const batch = entities.slice(i, i + batchSize);
+                    await this.npciTransactionRepo.save(batch);
+                }
+                this.logger.log(`Saved ${successCount} NPCI transactions from uploaded file`);
+            }
+
+            return {
+                message,
+                successCount,
+                skippedCount,
+            };
+
+        } catch (error: any) {
+            this.logger.error('Error processing file with Python service', error.stack);
+            throw new BadRequestException(
+                'File processing failed. Ensure the Python file processing service is running. Details: ' +
+                (error.response?.data?.detail || error.message)
+            );
+        }
     }
 
     async reconcileTransactions(userId?: string) {
