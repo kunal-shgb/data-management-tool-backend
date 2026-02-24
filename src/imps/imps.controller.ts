@@ -22,6 +22,12 @@ export class ImpsController {
         if (!file) {
             throw new BadRequestException('No file uploaded');
         }
+
+        const fileNameWithoutExt = file.originalname.substring(0, file.originalname.lastIndexOf('.')) || file.originalname;
+        if (!/^ISSUER_.+$/.test(fileNameWithoutExt)) {
+            throw new BadRequestException('File name must be in format ISSUER_{ANY_DATE}');
+        }
+
         if (!file.originalname.match(/\.(txt|csv|xlsx|xls)$/)) {
             throw new BadRequestException('Only .txt, .csv, .xlsx, and .xls files are allowed');
         }
