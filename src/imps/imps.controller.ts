@@ -6,32 +6,28 @@ import { CreateImpsNpciTransactionDto } from './dto/create-imps-npci-transaction
 import { ReconciliationQueryDto } from './dto/reconciliation-query.dto';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 
-@Controller('api/imps')
+@Controller('imps')
 @UseGuards(JwtAuthGuard)
 export class ImpsController {
     constructor(private readonly impsService: ImpsService) { }
 
-    @Post('cbs/ingest')
-    async ingestCbsTransactions(@Body() transactions: CreateImpsCbsTransactionDto[]) {
-        return await this.impsService.ingestCbsTransactions(transactions);
-    }
-
-    @Post('npci/upload')
+    @Post('upload/npci')
     @UseInterceptors(FileInterceptor('file'))
     async uploadNpciData(@UploadedFile() file: Express.Multer.File) {
         if (!file) {
             throw new BadRequestException('No file uploaded');
         }
 
-        const fileNameWithoutExt = file.originalname.substring(0, file.originalname.lastIndexOf('.')) || file.originalname;
-        if (!/^ISSUER_.+$/.test(fileNameWithoutExt)) {
-            throw new BadRequestException('File name must be in format ISSUER_{ANY_DATE}');
-        }
-
         if (!file.originalname.match(/\.(txt|csv|xlsx|xls)$/)) {
             throw new BadRequestException('Only .txt, .csv, .xlsx, and .xls files are allowed');
         }
+
         return await this.impsService.uploadNpciData(file);
+    }
+
+    @Post('upload/cbs')
+    async ingestCbsTransactions(@Body() transactions: CreateImpsCbsTransactionDto[]) {
+        return await this.impsService.ingestCbsTransactions(transactions);
     }
 
     @Post('reconcile')

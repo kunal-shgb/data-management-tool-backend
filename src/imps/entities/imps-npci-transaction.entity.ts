@@ -4,8 +4,8 @@ import { TransactionStatus } from '../../common/enums/transaction-status.enum';
 @Entity('imps_npci_transactions')
 @Index(['rrn', 'amount', 'transactionDate'])
 export class ImpsNpciTransaction {
-    @PrimaryGeneratedColumn('uuid')
-    id: string;
+    @PrimaryGeneratedColumn()
+    id: number;
 
     @Column()
     @Index()
@@ -22,11 +22,26 @@ export class ImpsNpciTransaction {
     @Index()
     transactionDate: Date;
 
+    @Column({ nullable: true })
+    senderMobileNumber: string;
+
+    @Column({ nullable: true })
+    modeOfTransaction: string;
+
     @Column()
     senderIfsc: string;
 
+    @Column({ nullable: true })
+    senderAccountNumber: string;
+
     @Column()
     receiverIfsc: string;
+
+    @Column({ nullable: true })
+    receiverAccountNumber: string;
+
+    @Column({ nullable: true })
+    transactionStatusCode: string;
 
     @Column({
         type: 'enum',

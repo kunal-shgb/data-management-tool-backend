@@ -17,9 +17,9 @@ export class ImpsReconciliation {
     @JoinColumn({ name: 'cbsTransactionId' })
     cbsTransaction: ImpsCbsTransaction;
 
-    @Column('uuid')
+    @Column()
     @Index()
-    npciTransactionId: string;
+    npciTransactionId: number;
 
     @ManyToOne(() => ImpsNpciTransaction, { onDelete: 'CASCADE' })
     @JoinColumn({ name: 'npciTransactionId' })

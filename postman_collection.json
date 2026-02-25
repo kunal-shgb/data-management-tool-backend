@@ -69,15 +69,14 @@
                             }
                         },
                         "url": {
-                            "raw": "{{baseUrl}}/api/imps/cbs/ingest",
+                            "raw": "{{baseUrl}}/imps/upload/cbs",
                             "host": [
                                 "{{baseUrl}}"
                             ],
                             "path": [
-                                "api",
                                 "imps",
-                                "cbs",
-                                "ingest"
+                                "upload",
+                                "cbs"
                             ]
                         }
                     },
@@ -99,15 +98,14 @@
                             ]
                         },
                         "url": {
-                            "raw": "{{baseUrl}}/api/imps/npci/upload",
+                            "raw": "{{baseUrl}}/imps/upload/npci",
                             "host": [
                                 "{{baseUrl}}"
                             ],
                             "path": [
-                                "api",
                                 "imps",
-                                "npci",
-                                "upload"
+                                "upload",
+                                "npci"
                             ]
                         }
                     },

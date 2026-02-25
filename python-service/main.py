@@ -8,6 +8,7 @@ app = FastAPI()
 
 @app.post("/process-npci-file")
 async def process_npci_file(file: UploadFile = File(...)):
+    print("I am here")
     filename = file.filename
     content = await file.read()
     

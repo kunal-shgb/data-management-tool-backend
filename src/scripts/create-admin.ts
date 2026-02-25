@@ -17,7 +17,7 @@ async function bootstrap() {
         const passwordArg = args.find(arg => arg.startsWith('--password='));
 
         if (!usernameArg || !passwordArg) {
-            console.error('Usage: npm run create-admin -- --username=admin --password=securepassword');
+            console.error('Usage: npm run create-admin -- --username=admin --password=password');
             process.exit(1);
         }
 

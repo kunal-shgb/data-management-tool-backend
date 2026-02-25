@@ -1,6 +1,6 @@
 import { Injectable, Logger, BadRequestException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, Between } from 'typeorm';
+import { Repository, Between, In } from 'typeorm';
 import axios from 'axios';
 import FormData from 'form-data';
 import { ImpsCbsTransaction } from './entities/imps-cbs-transaction.entity';
@@ -9,6 +9,7 @@ import { ImpsReconciliation } from './entities/imps-reconciliation.entity';
 import { CreateImpsCbsTransactionDto } from './dto/create-imps-cbs-transaction.dto';
 import { CreateImpsNpciTransactionDto } from './dto/create-imps-npci-transaction.dto';
 import { MatchConfidence } from '../common/enums/match-confidence.enum';
+import { TransactionStatus } from '../common/enums/transaction-status.enum';
 
 @Injectable()
 export class ImpsService {
@@ -39,46 +40,120 @@ export class ImpsService {
         }
 
         try {
-            
-            const formData = new FormData();
-            formData.append('file', file.buffer, {
-                filename: file.originalname,
-                contentType: file.mimetype,
-            });
+            const content = file.buffer.toString('utf-8');
+            const lines = content.split(/\r?\n/);
 
-            const response = await axios.post('http://localhost:8000/process-npci-file', formData, {
-                headers: formData.getHeaders(),
-            });
+            const transactions: any[] = [];
+            let successCount = 0;
+            let skippedCount = 0;
 
-            const { transactions, successCount, skippedCount, message } = response.data;
+            for (let i = 0; i < lines.length; i++) {
+                const line = lines[i].trim();
 
-            const entities = transactions.map((t: any) => this.npciTransactionRepo.create({
+                // Skip empty lines, headers (e.g. 17022026_1C), and footers (e.g. EOF4)
+                if (!line || /^\d{8}_\d+[a-zA-Z]$/.test(line) || line.startsWith('EOF')) {
+                    skippedCount++;
+                    continue;
+                }
+
+                const parts = line.split(',');
+                if (parts.length < 21) {
+                    skippedCount++;
+                    continue;
+                }
+
+                try {
+                    const rrn = parts[4].trim(); // Index 5
+                    const statusCode = parts[5].trim(); // Index 6
+                    const dateStr = parts[8].trim(); // Index 9
+                    const timeStr = parts[9].trim();
+                    const senderMobileNumber = parts[12].trim(); // Index 13
+                    const amountStr = parts[15].trim(); // Index 16
+                    const modeOfTransaction = parts[16].trim(); // Index 17
+                    const receiverIfsc = parts[17].trim(); // Index 18
+                    const receiverAccountNumber = parts[18].trim(); // Index 19
+                    const senderIfsc = parts[19].trim(); // Index 20
+                    const senderAccountNumber = parts[20].trim(); // Index 21
+
+                    // Parse Date & Time
+                    let transactionDate: string | null = null;
+                    if (dateStr && dateStr.length === 6 && timeStr && timeStr.length >= 6) {
+                        const year = parseInt(`20${dateStr.substring(0, 2)}`, 10);
+                        const month = parseInt(dateStr.substring(2, 4), 10) - 1; // 0-based month
+                        const day = parseInt(dateStr.substring(4, 6), 10);
+
+                        transactionDate = new Date(year, month, day).toISOString();
+                    }
+
+                    const amount = parseFloat(amountStr) / 100;
+
+                    let status = TransactionStatus.PENDING;
+                    if (statusCode === '00') {
+                        status = TransactionStatus.SUCCESS;
+                    }
+
+                    transactions.push({
+                        rrn,
+                        transactionStatusCode: statusCode,
+                        transactionDate,
+                        senderMobileNumber,
+                        amount,
+                        modeOfTransaction,
+                        receiverIfsc,
+                        receiverAccountNumber,
+                        senderIfsc,
+                        senderAccountNumber,
+                        status,
+                        rawData: { originalLine: line },
+                    });
+
+                    successCount++;
+                } catch (err: any) {
+                    this.logger.error(`Error parsing line: ${line}`, err.stack);
+                    skippedCount++;
+                }
+            }
+
+            // Save in batches
+            const allRrns = transactions.map(t => t.rrn);
+            const existingRrns = new Set(
+                (await this.npciTransactionRepo.find({
+                    where: { rrn: In(allRrns) },
+                    select: ['rrn']
+                })).map(t => t.rrn)
+            );
+
+            const uniqueTransactions = transactions.filter(t => !existingRrns.has(t.rrn));
+            const duplicatesCount = transactions.length - uniqueTransactions.length;
+            skippedCount += duplicatesCount;
+
+            const entitiesToCreate = uniqueTransactions.map((t) => ({
                 ...t,
                 transactionDate: t.transactionDate ? new Date(t.transactionDate) : null,
             }));
+            const entities = this.npciTransactionRepo.create(entitiesToCreate);
 
-            // Save in batches
             if (entities.length > 0) {
                 const batchSize = 1000;
                 for (let i = 0; i < entities.length; i += batchSize) {
                     const batch = entities.slice(i, i + batchSize);
                     await this.npciTransactionRepo.save(batch);
                 }
-                this.logger.log(`Saved ${successCount} NPCI transactions from uploaded file`);
+                this.logger.log(`Saved ${uniqueTransactions.length} unique NPCI transactions. Skipped ${duplicatesCount} duplicates.`);
             }
 
             return {
-                message,
-                successCount,
+                success: true,
+                message: duplicatesCount > 0
+                    ? `File processed with ${duplicatesCount} duplicate records skipped.`
+                    : "File processed successfully",
+                successCount: uniqueTransactions.length,
                 skippedCount,
             };
 
         } catch (error: any) {
-            this.logger.error('Error processing file with Python service', error.stack);
-            throw new BadRequestException(
-                'File processing failed. Ensure the Python file processing service is running. Details: ' +
-                (error.response?.data?.detail || error.message)
-            );
+            this.logger.error('Error processing text file', error.stack);
+            throw new BadRequestException('File processing failed: ' + error.message);
         }
     }
 

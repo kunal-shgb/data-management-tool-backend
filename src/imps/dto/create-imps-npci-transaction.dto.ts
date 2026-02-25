@@ -5,10 +5,6 @@ export class CreateImpsNpciTransactionDto {
     @IsString()
     rrn: string;
 
-    @IsString()
-    @IsOptional()
-    utr?: string;
-
     @IsNumber()
     amount: number;
 
@@ -16,10 +12,30 @@ export class CreateImpsNpciTransactionDto {
     transactionDate: string;
 
     @IsString()
+    @IsOptional()
+    senderMobileNumber?: string;
+
+    @IsString()
+    @IsOptional()
+    modeOfTransaction?: string;
+
+    @IsString()
     senderIfsc: string;
 
     @IsString()
+    @IsOptional()
+    senderAccountNumber?: string;
+
+    @IsString()
     receiverIfsc: string;
+
+    @IsString()
+    @IsOptional()
+    receiverAccountNumber?: string;
+
+    @IsString()
+    @IsOptional()
+    transactionStatusCode?: string;
 
     @IsEnum(TransactionStatus)
     status: TransactionStatus;
