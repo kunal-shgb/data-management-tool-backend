@@ -11,10 +11,6 @@ export class ImpsCbsTransaction {
     @Index()
     rrn: string;
 
-    @Column({ nullable: true })
-    @Index()
-    utr: string;
-
     @Column('decimal', { precision: 15, scale: 2 })
     amount: number;
 

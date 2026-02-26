@@ -1,8 +1,9 @@
-import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn, Index } from 'typeorm';
+import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn, Index, Unique } from 'typeorm';
 import { TransactionStatus } from '../../common/enums/transaction-status.enum';
 
 @Entity('imps_npci_transactions')
 @Index(['rrn', 'amount', 'transactionDate'])
+@Unique(['rrn', 'amount', 'senderAccountNumber'])
 export class ImpsNpciTransaction {
     @PrimaryGeneratedColumn()
     id: number;
@@ -10,10 +11,6 @@ export class ImpsNpciTransaction {
     @Column()
     @Index()
     rrn: string;
-
-    @Column({ nullable: true })
-    @Index()
-    utr: string;
 
     @Column('decimal', { precision: 15, scale: 2 })
     amount: number;
@@ -28,19 +25,19 @@ export class ImpsNpciTransaction {
     @Column({ nullable: true })
     modeOfTransaction: string;
 
-    @Column()
+    @Column({ nullable: true })
     senderIfsc: string;
 
     @Column({ nullable: true })
     senderAccountNumber: string;
 
-    @Column()
+    @Column({ nullable: true })
     receiverIfsc: string;
 
     @Column({ nullable: true })
     receiverAccountNumber: string;
 
-    @Column({ nullable: true })
+    @Column()
     transactionStatusCode: string;
 
     @Column({

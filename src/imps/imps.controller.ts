@@ -18,8 +18,8 @@ export class ImpsController {
             throw new BadRequestException('No file uploaded');
         }
 
-        if (!file.originalname.match(/\.(txt|csv|xlsx|xls)$/)) {
-            throw new BadRequestException('Only .txt, .csv, .xlsx, and .xls files are allowed');
+        if (!file.originalname.match(/\.(txt|csv)$/)) {
+            throw new BadRequestException('Only .txt, .csv files are allowed');
         }
 
         return await this.impsService.uploadNpciData(file);

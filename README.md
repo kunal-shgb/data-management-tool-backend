@@ -39,7 +39,7 @@ You must run this service concurrently on port 8000.
 ```bash
 $ cd python-service
 $ pip install -r requirements.txt
-$ uvicorn main:app --reload --port:8001
+$ uvicorn main:app --reload --port 8001
 ```
 
 ## Compile and run the project

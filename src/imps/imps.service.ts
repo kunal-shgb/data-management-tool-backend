@@ -62,12 +62,13 @@ export class ImpsService {
                     continue;
                 }
 
+
                 try {
                     const rrn = parts[4].trim(); // Index 5
                     const statusCode = parts[5].trim(); // Index 6
                     const dateStr = parts[8].trim(); // Index 9
                     const timeStr = parts[9].trim();
-                    const senderMobileNumber = parts[12].trim(); // Index 13
+                    const senderMobileNumber = parts[17] == 'PUNB0HGB001' ? parts[12].trim() : parts[11].trim(); // Index 12 or 13
                     const amountStr = parts[15].trim(); // Index 16
                     const modeOfTransaction = parts[16].trim(); // Index 17
                     const receiverIfsc = parts[17].trim(); // Index 18
@@ -87,9 +88,11 @@ export class ImpsService {
 
                     const amount = parseFloat(amountStr) / 100;
 
-                    let status = TransactionStatus.PENDING;
+                    let status = TransactionStatus.FAILED;
                     if (statusCode === '00') {
                         status = TransactionStatus.SUCCESS;
+                    } else if (statusCode === '08') {
+                        status = TransactionStatus.TIMEOUT;
                     }
 
                     transactions.push({
@@ -114,40 +117,43 @@ export class ImpsService {
                 }
             }
 
-            // Save in batches
-            const allRrns = transactions.map(t => t.rrn);
-            const existingRrns = new Set(
-                (await this.npciTransactionRepo.find({
-                    where: { rrn: In(allRrns) },
-                    select: ['rrn']
-                })).map(t => t.rrn)
-            );
-
-            const uniqueTransactions = transactions.filter(t => !existingRrns.has(t.rrn));
-            const duplicatesCount = transactions.length - uniqueTransactions.length;
-            skippedCount += duplicatesCount;
-
-            const entitiesToCreate = uniqueTransactions.map((t) => ({
+            const entitiesToCreate = transactions.map((t) => ({
                 ...t,
                 transactionDate: t.transactionDate ? new Date(t.transactionDate) : null,
             }));
-            const entities = this.npciTransactionRepo.create(entitiesToCreate);
 
-            if (entities.length > 0) {
+            let actualSuccessCount = 0;
+            if (entitiesToCreate.length > 0) {
                 const batchSize = 1000;
-                for (let i = 0; i < entities.length; i += batchSize) {
-                    const batch = entities.slice(i, i + batchSize);
-                    await this.npciTransactionRepo.save(batch);
+                for (let i = 0; i < entitiesToCreate.length; i += batchSize) {
+                    const batch = entitiesToCreate.slice(i, i + batchSize);
+                    const result = await this.npciTransactionRepo
+                        .createQueryBuilder()
+                        .insert()
+                        .values(batch)
+                        .orIgnore()
+                        .execute();
+
+                    // identifiers contains the ids of the inserted rows
+                    actualSuccessCount += result.identifiers.filter(id => id !== undefined && id !== null).length;
                 }
-                this.logger.log(`Saved ${uniqueTransactions.length} unique NPCI transactions. Skipped ${duplicatesCount} duplicates.`);
+                const duplicatesCount = transactions.length - actualSuccessCount;
+                this.logger.log(`Processed ${transactions.length} transactions. Saved ${actualSuccessCount} new, skipped ${duplicatesCount} duplicates.`);
+
+                return {
+                    success: true,
+                    message: duplicatesCount > 0
+                        ? `File processed with ${duplicatesCount} duplicate records skipped.`
+                        : "File processed successfully",
+                    successCount: actualSuccessCount,
+                    skippedCount: skippedCount + duplicatesCount,
+                };
             }
 
             return {
                 success: true,
-                message: duplicatesCount > 0
-                    ? `File processed with ${duplicatesCount} duplicate records skipped.`
-                    : "File processed successfully",
-                successCount: uniqueTransactions.length,
+                message: "No valid transactions found in file",
+                successCount: 0,
                 skippedCount,
             };
 
@@ -187,17 +193,17 @@ export class ImpsService {
             let matchConfidence = MatchConfidence.EXACT;
             let matchedOn = ['rrn', 'amount', 'date'];
 
-            // Secondary match: UTR + amount (if primary fails)
-            if (!npciTxn && cbsTxn.utr) {
+            // Secondary match: RRN + amount (if primary fails)
+            if (!npciTxn && cbsTxn.rrn) {
                 npciTxn = await this.npciTransactionRepo.findOne({
                     where: {
-                        utr: cbsTxn.utr,
+                        rrn: cbsTxn.rrn,
                         amount: cbsTxn.amount,
                     },
                 });
                 if (npciTxn) {
                     matchConfidence = MatchConfidence.PARTIAL;
-                    matchedOn = ['utr', 'amount'];
+                    matchedOn = ['rrn', 'amount'];
                 }
             }
 
