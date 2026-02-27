@@ -26,8 +26,17 @@ export class ImpsController {
     }
 
     @Post('upload/cbs')
-    async ingestCbsTransactions(@Body() transactions: CreateImpsCbsTransactionDto[]) {
-        return await this.impsService.ingestCbsTransactions(transactions);
+    @UseInterceptors(FileInterceptor('file'))
+    async uploadCbsData(@UploadedFile() file: Express.Multer.File) {
+        if (!file) {
+            throw new BadRequestException('No file uploaded');
+        }
+
+        if (!file.originalname.match(/\.(txt|csv)$/)) {
+            throw new BadRequestException('Only .txt, .csv files are allowed');
+        }
+
+        return await this.impsService.uploadCbsData(file);
     }
 
     @Post('reconcile')

@@ -143,3 +143,64 @@ describe('ImpsService - NPCI Upload', () => {
         await expect(service.uploadNpciData(mockFile)).rejects.toThrow('Invalid file name. format must be ISSUER_DDMMYYYY or ACQUIRER_DDMMYYYY');
     });
 });
+
+describe('ImpsService - CBS Upload', () => {
+    let service: ImpsService;
+    let mockCbsRepo: Partial<Repository<ImpsCbsTransaction>>;
+
+    beforeEach(async () => {
+        mockCbsRepo = {
+            create: jest.fn().mockImplementation((dto) => dto),
+            save: jest.fn().mockImplementation((entities) => Promise.resolve(entities)),
+        };
+
+        const module: TestingModule = await Test.createTestingModule({
+            providers: [
+                ImpsService,
+                { provide: getRepositoryToken(ImpsCbsTransaction), useValue: mockCbsRepo },
+                { provide: getRepositoryToken(ImpsNpciTransaction), useValue: {} },
+                { provide: getRepositoryToken(ImpsReconciliation), useValue: {} },
+            ],
+        }).compile();
+
+        service = module.get<ImpsService>(ImpsService);
+    });
+
+    it('should parse CBS file and save TRTR transactions', async () => {
+        const line1 = 'SYS1|2026-02-27|100.00|TRTR/RRN1|UN|TYPE1';
+        const line2 = 'SYS2|2026-02-27|200.00|OTHER/RRN2|UN|TYPE2'; // Should be skipped
+        const mockFile = {
+            buffer: Buffer.from(`${line1}\n${line2}`, 'utf-8'),
+        } as Express.Multer.File;
+
+        const result = await service.uploadCbsData(mockFile);
+
+        expect(result.success).toBe(true);
+        expect(result.successCount).toBe(1);
+        expect(mockCbsRepo.create).toHaveBeenCalled();
+        const createdData = (mockCbsRepo.create as jest.Mock).mock.calls[0][0];
+        expect(createdData[0].systemNumber).toBe('SYS1');
+        expect(createdData[0].rrn).toBe('RRN1');
+        expect(createdData[0].amount).toBe(100.00);
+        expect(createdData[0].transactionType).toBe('TYPE1');
+    });
+
+    it('should throw BadRequestException if file buffer is empty', async () => {
+        const mockFile = {
+            buffer: null,
+        } as any;
+
+        await expect(service.uploadCbsData(mockFile)).rejects.toThrow(BadRequestException);
+    });
+
+    it('should return 0 success count if no TRTR transactions found', async () => {
+        const line1 = 'SYS1|2026-02-27|100.00|OTHER/RRN1|UN|TYPE1';
+        const mockFile = {
+            buffer: Buffer.from(line1, 'utf-8'),
+        } as Express.Multer.File;
+
+        const result = await service.uploadCbsData(mockFile);
+        expect(result.successCount).toBe(0);
+        expect(result.message).toBe('No valid transactions found in file');
+    });
+});

@@ -34,6 +34,83 @@ export class ImpsService {
         return await this.cbsTransactionRepo.save(entities);
     }
 
+    async uploadCbsData(file: Express.Multer.File) {
+        if (!file.buffer) {
+            throw new BadRequestException('File buffer is empty');
+        }
+
+        try {
+            const content = file.buffer.toString('utf-8');
+            const lines = content.split(/\r?\n/);
+            const transactions: any[] = [];
+
+            for (let i = 0; i < lines.length; i++) {
+                const line = lines[i].trim();
+                if (!line) continue;
+
+                const parts = line.split('|');
+                if (parts.length < 6) continue;
+
+                const systemNumber = parts[0].trim();
+                const transactionDateStr = parts[1].trim();
+                const amountStr = parts[2].trim();
+                const transactionDetails = parts[3].trim();
+                const transactionType = parts[5].trim();
+                console.log("SNO. -- >" + systemNumber, "Transaction Date -- >" + transactionDateStr, "Amount -- >" + amountStr, "Transaction Details -- >" + transactionDetails, "Transaction Type -- >" + transactionType);
+
+                // if (!transactionDetails.startsWith('TRTR')) {
+                //     continue;
+                // }
+
+                // const detailsParts = transactionDetails.split('/');
+                // if (detailsParts.length < 2) {
+                //     continue;
+                // }
+
+                // const rrn = detailsParts[1].trim();
+                // const amount = parseFloat(amountStr);
+
+                // if (isNaN(amount)) {
+                //     this.logger.warn(`Invalid amount at line ${i + 1}: ${amountStr}`);
+                //     continue;
+                // }
+
+                // transactions.push({
+                //     systemNumber,
+                //     rrn,
+                //     amount,
+                //     transactionDate: new Date(transactionDateStr),
+                //     transactionType,
+                //     rawData: { originalLine: line },
+                // });
+            }
+
+            // if (transactions.length === 0) {
+            //     return {
+            //         success: true,
+            //         message: 'No valid transactions found in file',
+            //         successCount: 0,
+            //     };
+            // }
+
+            // const entities = this.cbsTransactionRepo.create(transactions);
+            // const saved = await this.cbsTransactionRepo.save(entities);
+
+            // return {
+            //     success: true,
+            //     message: 'CBS file processed successfully',
+            //     successCount: saved.length,
+            // };
+            return {
+                success: true,
+                message: 'CBS file processed successfully'
+            };
+        } catch (error: any) {
+            this.logger.error('Error processing CBS file', error.stack);
+            throw new BadRequestException('CBS file processing failed: ' + error.message);
+        }
+    }
+
     async uploadNpciData(file: Express.Multer.File) {
         if (!file.buffer) {
             throw new BadRequestException('File buffer is empty');
