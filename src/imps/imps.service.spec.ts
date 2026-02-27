@@ -1,3 +1,4 @@
+import { BadRequestException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import { ImpsService } from './imps.service';
 import { getRepositoryToken } from '@nestjs/typeorm';
@@ -40,6 +41,7 @@ describe('ImpsService - NPCI Upload', () => {
         const line1 = 'H,H,H,H,605019639721,00,H,H,260219,100320,H,H,9876543210,H,H,120000,IMPS,IFSC1,ACC1,IFSC2,ACC2';
         const mockFile = {
             buffer: Buffer.from(line1, 'utf-8'),
+            originalname: 'ISSUER_26022019.txt',
         } as Express.Multer.File;
 
         const mockInsertBuilder = {
@@ -62,6 +64,12 @@ describe('ImpsService - NPCI Upload', () => {
         expect(insertedValues[0].rrn).toBe('605019639721');
         expect(insertedValues[0].amount).toBe(1200); // 120000 / 100
         expect(insertedValues[0].senderAccountNumber).toBe('ACC2');
+
+        // Check date parsing (DDMMYY: 260219 -> 2019-02-26)
+        const txnDate = new Date(insertedValues[0].transactionDate);
+        expect(txnDate.getFullYear()).toBe(2019);
+        expect(txnDate.getMonth()).toBe(1); // February (0-indexed)
+        expect(txnDate.getDate()).toBe(26);
     });
 
     it('should correctly report duplicates based on database response', async () => {
@@ -70,6 +78,7 @@ describe('ImpsService - NPCI Upload', () => {
 
         const mockFile = {
             buffer: Buffer.from(`${line1}\n${line2}`, 'utf-8'),
+            originalname: 'ISSUER_26022019.txt',
         } as Express.Multer.File;
 
         const mockInsertBuilder = {
@@ -94,6 +103,7 @@ describe('ImpsService - NPCI Upload', () => {
 
         const mockFile = {
             buffer: Buffer.from(`${line1}\n${line2}`, 'utf-8'),
+            originalname: 'ISSUER_26022019.txt',
         } as Express.Multer.File;
 
         const mockInsertBuilder = {
@@ -109,5 +119,27 @@ describe('ImpsService - NPCI Upload', () => {
 
         expect(result.successCount).toBe(2);
         expect(result.skippedCount).toBe(0);
+    });
+
+    it('should throw BadRequestException if row date does not match filename date', async () => {
+        const line1 = 'H,H,H,H,RRN1,00,H,H,270219,100320,H,H,M1,H,H,10000,IMPS,IF1,AC1,IF2,AC2'; // Date is 270219
+
+        const mockFile = {
+            buffer: Buffer.from(line1, 'utf-8'),
+            originalname: 'ISSUER_26022019.txt', // Date is 260219
+        } as Express.Multer.File;
+
+        await expect(service.uploadNpciData(mockFile)).rejects.toThrow(BadRequestException);
+        await expect(service.uploadNpciData(mockFile)).rejects.toThrow(/Date mismatch/);
+    });
+
+    it('should throw BadRequestException if filename is invalid', async () => {
+        const mockFile = {
+            buffer: Buffer.from('some data', 'utf-8'),
+            originalname: 'invalid_filename.txt',
+        } as Express.Multer.File;
+
+        await expect(service.uploadNpciData(mockFile)).rejects.toThrow(BadRequestException);
+        await expect(service.uploadNpciData(mockFile)).rejects.toThrow('Invalid file name. format must be ISSUER_DDMMYYYY or ACQUIRER_DDMMYYYY');
     });
 });

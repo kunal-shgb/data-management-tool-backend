@@ -4,8 +4,11 @@ import { TransactionStatus } from '../../common/enums/transaction-status.enum';
 @Entity('imps_cbs_transactions')
 @Index(['rrn', 'amount', 'transactionDate'])
 export class ImpsCbsTransaction {
-    @PrimaryGeneratedColumn('uuid')
-    id: string;
+    @PrimaryGeneratedColumn()
+    id: number;
+
+    @Column()
+    systemNumber: string;
 
     @Column()
     @Index()
@@ -19,18 +22,7 @@ export class ImpsCbsTransaction {
     transactionDate: Date;
 
     @Column()
-    senderAccount: string;
-
-    @Column()
-    receiverAccount: string;
-
-    @Column({
-        type: 'enum',
-        enum: TransactionStatus,
-        default: TransactionStatus.PENDING,
-    })
-    @Index()
-    status: TransactionStatus;
+    transactionType: string;
 
     @Column('jsonb', { nullable: true })
     rawData: Record<string, any>;

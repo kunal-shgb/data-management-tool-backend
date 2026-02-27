@@ -1,13 +1,13 @@
 import { Injectable, Logger, BadRequestException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, Between, In } from 'typeorm';
-import axios from 'axios';
-import FormData from 'form-data';
+// import axios from 'axios';
+// import FormData from 'form-data';
 import { ImpsCbsTransaction } from './entities/imps-cbs-transaction.entity';
 import { ImpsNpciTransaction } from './entities/imps-npci-transaction.entity';
 import { ImpsReconciliation } from './entities/imps-reconciliation.entity';
 import { CreateImpsCbsTransactionDto } from './dto/create-imps-cbs-transaction.dto';
-import { CreateImpsNpciTransactionDto } from './dto/create-imps-npci-transaction.dto';
+// import { CreateImpsNpciTransactionDto } from './dto/create-imps-npci-transaction.dto';
 import { MatchConfidence } from '../common/enums/match-confidence.enum';
 import { TransactionStatus } from '../common/enums/transaction-status.enum';
 
@@ -39,6 +39,17 @@ export class ImpsService {
             throw new BadRequestException('File buffer is empty');
         }
 
+        const fileName = file.originalname;
+        const filenameRegex = /^(ISSUER|ACQUIRER)_(\d{8})(\.[^.]+)?$/;
+        const filenameMatch = fileName.match(filenameRegex);
+
+        if (!filenameMatch) {
+            throw new BadRequestException('Invalid file name. format must be ISSUER_DDMMYYYY or ACQUIRER_DDMMYYYY');
+        }
+
+        // const filenameDate = filenameMatch[2]; // DDMMYYYY
+        // const expectedDateInRow = filenameDate.substring(0, 4) + filenameDate.substring(6, 8); // DDMMYY
+
         try {
             const content = file.buffer.toString('utf-8');
             const lines = content.split(/\r?\n/);
@@ -63,6 +74,12 @@ export class ImpsService {
                 }
 
 
+                // const rowDate = parts[8].trim();
+                // if (rowDate !== expectedDateInRow) {
+                //     throw new BadRequestException(`Date mismatch at line ${i + 1}: filename date ${expectedDateInRow} does not match row date ${rowDate}`);
+                // }
+
+
                 try {
                     const rrn = parts[4].trim(); // Index 5
                     const statusCode = parts[5].trim(); // Index 6
@@ -79,9 +96,9 @@ export class ImpsService {
                     // Parse Date & Time
                     let transactionDate: string | null = null;
                     if (dateStr && dateStr.length === 6 && timeStr && timeStr.length >= 6) {
-                        const year = parseInt(`20${dateStr.substring(0, 2)}`, 10);
+                        const day = parseInt(dateStr.substring(0, 2), 10);
                         const month = parseInt(dateStr.substring(2, 4), 10) - 1; // 0-based month
-                        const day = parseInt(dateStr.substring(4, 6), 10);
+                        const year = parseInt(`20${dateStr.substring(4, 6)}`, 10);
 
                         transactionDate = new Date(year, month, day).toISOString();
                     }
@@ -213,17 +230,17 @@ export class ImpsService {
                     where: { npciTransactionId: npciTxn.id },
                 });
 
-                if (!existingMatch) {
-                    const reconciliation = this.reconciliationRepo.create({
-                        cbsTransactionId: cbsTxn.id,
-                        npciTransactionId: npciTxn.id,
-                        matchConfidence,
-                        matchedOn,
-                        reconciledAt: new Date(),
-                        reconciledBy: userId || undefined,
-                    });
-                    reconciliations.push(reconciliation);
-                }
+                // if (!existingMatch) {
+                //     const reconciliation = this.reconciliationRepo.create({
+                //         cbsTransactionId: cbsTxn.id,
+                //         npciTransactionId: npciTxn.id,
+                //         matchConfidence,
+                //         matchedOn,
+                //         reconciledAt: new Date(),
+                //         reconciledBy: userId || undefined,
+                //     });
+                //     reconciliations.push(reconciliation);
+                // }
             }
         }
 

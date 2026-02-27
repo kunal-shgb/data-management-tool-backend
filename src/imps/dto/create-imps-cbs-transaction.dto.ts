@@ -2,12 +2,12 @@ import { IsString, IsNumber, IsDateString, IsEnum, IsOptional, IsObject } from '
 import { TransactionStatus } from '../../common/enums/transaction-status.enum';
 
 export class CreateImpsCbsTransactionDto {
-    @IsString()
-    rrn: string;
 
     @IsString()
-    @IsOptional()
-    utr?: string;
+    systemNumber: string;
+
+    @IsString()
+    rrn: string;
 
     @IsNumber()
     amount: number;
@@ -16,13 +16,7 @@ export class CreateImpsCbsTransactionDto {
     transactionDate: string;
 
     @IsString()
-    senderAccount: string;
-
-    @IsString()
-    receiverAccount: string;
-
-    @IsEnum(TransactionStatus)
-    status: TransactionStatus;
+    transactionType: string;
 
     @IsObject()
     @IsOptional()
