@@ -284,85 +284,83 @@ export class ImpsService {
         }
     }
 
-    async reconcileTransactions(userId?: string) {
-        this.logger.log('Starting IMPS reconciliation...');
+    async reconcileTransactions(dateStr?: string) {
+        if (!dateStr) {
+            throw new BadRequestException('Transaction date is required');
+        }
 
-        // Get unmatched CBS transactions
-        const unmatchedCbs = await this.cbsTransactionRepo
-            .createQueryBuilder('cbs')
-            .leftJoin(
-                'imps_reconciliations',
-                'recon',
-                'recon.cbsTransactionId = cbs.id',
-            )
-            .where('recon.id IS NULL')
-            .getMany();
+        const requestDate = new Date(dateStr);
+        if (isNaN(requestDate.getTime())) {
+            throw new BadRequestException('Invalid date format');
+        }
 
-        this.logger.log(`Found ${unmatchedCbs.length} unmatched CBS transactions`);
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
 
-        const reconciliations: ImpsReconciliation[] = [];
+        const targetDate = new Date(requestDate);
+        targetDate.setHours(0, 0, 0, 0);
 
-        for (const cbsTxn of unmatchedCbs) {
-            // Primary match: RRN + amount + date (within 5 minutes)
-            const dateStart = new Date(
-                cbsTxn.transactionDate.getTime() - 5 * 60 * 1000,
+        if (targetDate.getTime() >= today.getTime()) {
+            throw new BadRequestException('Transaction date must be prior to the current date');
+        }
+
+        const dateStart = new Date(targetDate);
+        const dateEnd = new Date(targetDate);
+        dateEnd.setHours(23, 59, 59, 999);
+
+        this.logger.log(`Starting IMPS reconciliation for date: ${targetDate.toISOString()}`);
+
+        const cbsTxns = await this.cbsTransactionRepo.find({
+            where: { transactionDate: Between(dateStart, dateEnd) },
+        });
+
+        const npciTxns = await this.npciTransactionRepo.find({
+            where: { transactionDate: Between(dateStart, dateEnd) },
+        });
+
+        const matchedNpciIds = new Set<number>();
+
+        const matched: { cbs: any, npci: any }[] = [];
+        const unmatchedCbs: any[] = [];
+        const unmatchedNpci: any[] = [];
+
+        for (const cbsTxn of cbsTxns) {
+            // Find a matching NPCI transaction by RRN and amount that hasn't been matched yet
+            const matchingNpciIndex = npciTxns.findIndex(
+                npciTxn => npciTxn.rrn === cbsTxn.rrn
+                    && npciTxn.amount === cbsTxn.amount
+                    && !matchedNpciIds.has(npciTxn.id)
             );
-            const dateEnd = new Date(
-                cbsTxn.transactionDate.getTime() + 5 * 60 * 1000,
-            );
 
-            let npciTxn = await this.npciTransactionRepo.findOne({
-                where: {
-                    rrn: cbsTxn.rrn,
-                    amount: cbsTxn.amount,
-                    transactionDate: Between(dateStart, dateEnd),
-                },
-            });
-
-            let matchConfidence = MatchConfidence.EXACT;
-            let matchedOn = ['rrn', 'amount', 'date'];
-
-            // Secondary match: RRN + amount (if primary fails)
-            if (!npciTxn && cbsTxn.rrn) {
-                npciTxn = await this.npciTransactionRepo.findOne({
-                    where: {
-                        rrn: cbsTxn.rrn,
-                        amount: cbsTxn.amount,
-                    },
+            if (matchingNpciIndex !== -1) {
+                const matchedNpciTxn = npciTxns[matchingNpciIndex];
+                matchedNpciIds.add(matchedNpciTxn.id);
+                matched.push({
+                    cbs: cbsTxn,
+                    npci: matchedNpciTxn
                 });
-                if (npciTxn) {
-                    matchConfidence = MatchConfidence.PARTIAL;
-                    matchedOn = ['rrn', 'amount'];
-                }
-            }
-
-            if (npciTxn) {
-                // Check if NPCI transaction is already matched
-                const existingMatch = await this.reconciliationRepo.findOne({
-                    where: { npciTransactionId: npciTxn.id },
-                });
-
-                // if (!existingMatch) {
-                //     const reconciliation = this.reconciliationRepo.create({
-                //         cbsTransactionId: cbsTxn.id,
-                //         npciTransactionId: npciTxn.id,
-                //         matchConfidence,
-                //         matchedOn,
-                //         reconciledAt: new Date(),
-                //         reconciledBy: userId || undefined,
-                //     });
-                //     reconciliations.push(reconciliation);
-                // }
+            } else {
+                unmatchedCbs.push(cbsTxn);
             }
         }
 
-        const saved = await this.reconciliationRepo.save(reconciliations);
-        this.logger.log(`Reconciled ${saved.length} transactions`);
+        for (const npciTxn of npciTxns) {
+            if (!matchedNpciIds.has(npciTxn.id)) {
+                unmatchedNpci.push(npciTxn);
+            }
+        }
+
+        this.logger.log(`Reconciliation complete. Matched: ${matched.length}, Unmatched CBS: ${unmatchedCbs.length}, Unmatched NPCI: ${unmatchedNpci.length}`);
 
         return {
-            totalProcessed: unmatchedCbs.length,
-            matched: saved.length,
-            unmatched: unmatchedCbs.length - saved.length,
+            matchedCount: matched.length,
+            unmatchedCbsCount: unmatchedCbs.length,
+            unmatchedNpciCount: unmatchedNpci.length,
+            matched,
+            unmatched: {
+                cbs: unmatchedCbs,
+                npci: unmatchedNpci
+            }
         };
     }
 

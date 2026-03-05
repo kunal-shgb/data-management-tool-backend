@@ -19,7 +19,7 @@ import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 @Controller('imps')
 @UseGuards(JwtAuthGuard)
 export class ImpsController {
-  constructor(private readonly impsService: ImpsService) {}
+  constructor(private readonly impsService: ImpsService) { }
 
   @Post('upload/npci')
   @UseInterceptors(FileInterceptor('file'))
@@ -50,8 +50,11 @@ export class ImpsController {
   }
 
   @Post('reconcile')
-  async reconcileTransactions() {
-    return await this.impsService.reconcileTransactions();
+  async reconcileTransactions(@Body('date') date: string) {
+    if (!date) {
+      throw new BadRequestException('Date is required in request body');
+    }
+    return await this.impsService.reconcileTransactions(date);
   }
 
   @Get('reconciliations')
