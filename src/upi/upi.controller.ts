@@ -8,30 +8,34 @@ import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 @Controller('api/upi')
 @UseGuards(JwtAuthGuard)
 export class UpiController {
-    constructor(private readonly upiService: UpiService) { }
+  constructor(private readonly upiService: UpiService) {}
 
-    @Post('cbs/ingest')
-    async ingestCbsTransactions(@Body() transactions: CreateUpiCbsTransactionDto[]) {
-        return await this.upiService.ingestCbsTransactions(transactions);
-    }
+  @Post('cbs/ingest')
+  async ingestCbsTransactions(
+    @Body() transactions: CreateUpiCbsTransactionDto[],
+  ) {
+    return await this.upiService.ingestCbsTransactions(transactions);
+  }
 
-    @Post('npci/ingest')
-    async ingestNpciTransactions(@Body() transactions: CreateUpiNpciTransactionDto[]) {
-        return await this.upiService.ingestNpciTransactions(transactions);
-    }
+  @Post('npci/ingest')
+  async ingestNpciTransactions(
+    @Body() transactions: CreateUpiNpciTransactionDto[],
+  ) {
+    return await this.upiService.ingestNpciTransactions(transactions);
+  }
 
-    @Post('reconcile')
-    async reconcileTransactions() {
-        return await this.upiService.reconcileTransactions();
-    }
+  @Post('reconcile')
+  async reconcileTransactions() {
+    return await this.upiService.reconcileTransactions();
+  }
 
-    @Get('reconciliations')
-    async getReconciliations(@Query() query: ReconciliationQueryDto) {
-        return await this.upiService.getReconciliations(query);
-    }
+  @Get('reconciliations')
+  async getReconciliations(@Query() query: ReconciliationQueryDto) {
+    return await this.upiService.getReconciliations(query);
+  }
 
-    @Get('unmatched')
-    async getUnmatchedTransactions() {
-        return await this.upiService.getUnmatchedTransactions();
-    }
+  @Get('unmatched')
+  async getUnmatchedTransactions() {
+    return await this.upiService.getUnmatchedTransactions();
+  }
 }

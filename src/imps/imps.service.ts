@@ -24,16 +24,6 @@ export class ImpsService {
         private reconciliationRepo: Repository<ImpsReconciliation>,
     ) { }
 
-    async ingestCbsTransactions(transactions: CreateImpsCbsTransactionDto[]) {
-        const entities = transactions.map(dto =>
-            this.cbsTransactionRepo.create({
-                ...dto,
-                transactionDate: new Date(dto.transactionDate),
-            })
-        );
-        return await this.cbsTransactionRepo.save(entities);
-    }
-
     async uploadCbsData(file: Express.Multer.File) {
         if (!file.buffer) {
             throw new BadRequestException('File buffer is empty');
@@ -56,58 +46,81 @@ export class ImpsService {
                 const amountStr = parts[2].trim();
                 const transactionDetails = parts[3].trim();
                 const transactionType = parts[5].trim();
-                console.log("SNO. -- >" + systemNumber, "Transaction Date -- >" + transactionDateStr, "Amount -- >" + amountStr, "Transaction Details -- >" + transactionDetails, "Transaction Type -- >" + transactionType);
+                if (!transactionDetails.startsWith('TRTR')) {
+                    continue;
+                }
+                const detailsParts = transactionDetails.split('/');
+                if (detailsParts.length < 2) {
+                    continue;
+                }
 
-                // if (!transactionDetails.startsWith('TRTR')) {
-                //     continue;
-                // }
+                const rrn = detailsParts[1].trim();
+                const amount = parseFloat(amountStr);
 
-                // const detailsParts = transactionDetails.split('/');
-                // if (detailsParts.length < 2) {
-                //     continue;
-                // }
+                if (isNaN(amount)) {
+                    this.logger.warn(`Invalid amount at line ${i + 1}: ${amountStr}`);
+                    continue;
+                }
 
-                // const rrn = detailsParts[1].trim();
-                // const amount = parseFloat(amountStr);
-
-                // if (isNaN(amount)) {
-                //     this.logger.warn(`Invalid amount at line ${i + 1}: ${amountStr}`);
-                //     continue;
-                // }
-
-                // transactions.push({
-                //     systemNumber,
-                //     rrn,
-                //     amount,
-                //     transactionDate: new Date(transactionDateStr),
-                //     transactionType,
-                //     rawData: { originalLine: line },
-                // });
+                const [day, month, year] = transactionDateStr
+                    .split('-')
+                    .map((p) => parseInt(p, 10));
+                const transactionDate = new Date(year, month - 1, day);
+                transactions.push({
+                    systemNumber,
+                    rrn,
+                    amount,
+                    transactionDate,
+                    transactionType,
+                    rawData: { originalLine: line },
+                });
             }
 
-            // if (transactions.length === 0) {
-            //     return {
-            //         success: true,
-            //         message: 'No valid transactions found in file',
-            //         successCount: 0,
-            //     };
-            // }
+            if (transactions.length === 0) {
+                return {
+                    success: true,
+                    message: 'No valid transactions found in file',
+                    successCount: 0,
+                };
+            }
 
-            // const entities = this.cbsTransactionRepo.create(transactions);
-            // const saved = await this.cbsTransactionRepo.save(entities);
+            const batchSize = 1000;
+            let actualSuccessCount = 0;
 
-            // return {
-            //     success: true,
-            //     message: 'CBS file processed successfully',
-            //     successCount: saved.length,
-            // };
+            for (let i = 0; i < transactions.length; i += batchSize) {
+                const batch = transactions.slice(i, i + batchSize);
+
+                const result = await this.cbsTransactionRepo
+                    .createQueryBuilder()
+                    .insert()
+                    .values(batch)
+                    .orIgnore()
+                    .execute();
+
+                actualSuccessCount += result.identifiers.filter(
+                    (id) => id !== undefined && id !== null,
+                ).length;
+            }
+
+            const skippedCount = transactions.length - actualSuccessCount;
+            this.logger.log(
+                `Processed ${transactions.length} CBS transactions. Saved ${actualSuccessCount} new, skipped ${skippedCount} duplicates.`,
+            );
+
             return {
                 success: true,
-                message: 'CBS file processed successfully'
+                message:
+                    skippedCount > 0
+                        ? `CBS file processed with ${skippedCount} duplicate records skipped.`
+                        : 'CBS file processed successfully',
+                successCount: actualSuccessCount,
+                skippedCount,
             };
         } catch (error: any) {
             this.logger.error('Error processing CBS file', error.stack);
-            throw new BadRequestException('CBS file processing failed: ' + error.message);
+            throw new BadRequestException(
+                'CBS file processing failed: ' + error.message,
+            );
         }
     }
 
@@ -121,7 +134,9 @@ export class ImpsService {
         const filenameMatch = fileName.match(filenameRegex);
 
         if (!filenameMatch) {
-            throw new BadRequestException('Invalid file name. format must be ISSUER_DDMMYYYY or ACQUIRER_DDMMYYYY');
+            throw new BadRequestException(
+                'Invalid file name. format must be ISSUER_DDMMYYYY or ACQUIRER_DDMMYYYY',
+            );
         }
 
         // const filenameDate = filenameMatch[2]; // DDMMYYYY
@@ -139,7 +154,11 @@ export class ImpsService {
                 const line = lines[i].trim();
 
                 // Skip empty lines, headers (e.g. 17022026_1C), and footers (e.g. EOF4)
-                if (!line || /^\d{8}_\d+[a-zA-Z]$/.test(line) || line.startsWith('EOF')) {
+                if (
+                    !line ||
+                    /^\d{8}_\d+[a-zA-Z]$/.test(line) ||
+                    line.startsWith('EOF')
+                ) {
                     skippedCount++;
                     continue;
                 }
@@ -150,19 +169,18 @@ export class ImpsService {
                     continue;
                 }
 
-
                 // const rowDate = parts[8].trim();
                 // if (rowDate !== expectedDateInRow) {
                 //     throw new BadRequestException(`Date mismatch at line ${i + 1}: filename date ${expectedDateInRow} does not match row date ${rowDate}`);
                 // }
-
 
                 try {
                     const rrn = parts[4].trim(); // Index 5
                     const statusCode = parts[5].trim(); // Index 6
                     const dateStr = parts[8].trim(); // Index 9
                     const timeStr = parts[9].trim();
-                    const senderMobileNumber = parts[17] == 'PUNB0HGB001' ? parts[12].trim() : parts[11].trim(); // Index 12 or 13
+                    const senderMobileNumber =
+                        parts[17] == 'PUNB0HGB001' ? parts[12].trim() : parts[11].trim(); // Index 12 or 13
                     const amountStr = parts[15].trim(); // Index 16
                     const modeOfTransaction = parts[16].trim(); // Index 17
                     const receiverIfsc = parts[17].trim(); // Index 18
@@ -172,10 +190,15 @@ export class ImpsService {
 
                     // Parse Date & Time
                     let transactionDate: string | null = null;
-                    if (dateStr && dateStr.length === 6 && timeStr && timeStr.length >= 6) {
-                        const day = parseInt(dateStr.substring(0, 2), 10);
+                    if (
+                        dateStr &&
+                        dateStr.length === 6 &&
+                        timeStr &&
+                        timeStr.length >= 6
+                    ) {
+                        const year = parseInt(`20${dateStr.substring(0, 2)}`, 10);
                         const month = parseInt(dateStr.substring(2, 4), 10) - 1; // 0-based month
-                        const year = parseInt(`20${dateStr.substring(4, 6)}`, 10);
+                        const day = parseInt(dateStr.substring(4, 6), 10);
 
                         transactionDate = new Date(year, month, day).toISOString();
                     }
@@ -229,16 +252,21 @@ export class ImpsService {
                         .execute();
 
                     // identifiers contains the ids of the inserted rows
-                    actualSuccessCount += result.identifiers.filter(id => id !== undefined && id !== null).length;
+                    actualSuccessCount += result.identifiers.filter(
+                        (id) => id !== undefined && id !== null,
+                    ).length;
                 }
                 const duplicatesCount = transactions.length - actualSuccessCount;
-                this.logger.log(`Processed ${transactions.length} transactions. Saved ${actualSuccessCount} new, skipped ${duplicatesCount} duplicates.`);
+                this.logger.log(
+                    `Processed ${transactions.length} transactions. Saved ${actualSuccessCount} new, skipped ${duplicatesCount} duplicates.`,
+                );
 
                 return {
                     success: true,
-                    message: duplicatesCount > 0
-                        ? `File processed with ${duplicatesCount} duplicate records skipped.`
-                        : "File processed successfully",
+                    message:
+                        duplicatesCount > 0
+                            ? `File processed with ${duplicatesCount} duplicate records skipped.`
+                            : 'File processed successfully',
                     successCount: actualSuccessCount,
                     skippedCount: skippedCount + duplicatesCount,
                 };
@@ -246,11 +274,10 @@ export class ImpsService {
 
             return {
                 success: true,
-                message: "No valid transactions found in file",
+                message: 'No valid transactions found in file',
                 successCount: 0,
                 skippedCount,
             };
-
         } catch (error: any) {
             this.logger.error('Error processing text file', error.stack);
             throw new BadRequestException('File processing failed: ' + error.message);
@@ -263,7 +290,11 @@ export class ImpsService {
         // Get unmatched CBS transactions
         const unmatchedCbs = await this.cbsTransactionRepo
             .createQueryBuilder('cbs')
-            .leftJoin('imps_reconciliations', 'recon', 'recon.cbsTransactionId = cbs.id')
+            .leftJoin(
+                'imps_reconciliations',
+                'recon',
+                'recon.cbsTransactionId = cbs.id',
+            )
             .where('recon.id IS NULL')
             .getMany();
 
@@ -273,8 +304,12 @@ export class ImpsService {
 
         for (const cbsTxn of unmatchedCbs) {
             // Primary match: RRN + amount + date (within 5 minutes)
-            const dateStart = new Date(cbsTxn.transactionDate.getTime() - 5 * 60 * 1000);
-            const dateEnd = new Date(cbsTxn.transactionDate.getTime() + 5 * 60 * 1000);
+            const dateStart = new Date(
+                cbsTxn.transactionDate.getTime() - 5 * 60 * 1000,
+            );
+            const dateEnd = new Date(
+                cbsTxn.transactionDate.getTime() + 5 * 60 * 1000,
+            );
 
             let npciTxn = await this.npciTransactionRepo.findOne({
                 where: {
@@ -339,15 +374,21 @@ export class ImpsService {
             .leftJoinAndSelect('recon.reconciler', 'user');
 
         if (query.matchConfidence) {
-            qb.andWhere('recon.matchConfidence = :confidence', { confidence: query.matchConfidence });
+            qb.andWhere('recon.matchConfidence = :confidence', {
+                confidence: query.matchConfidence,
+            });
         }
 
         if (query.startDate) {
-            qb.andWhere('recon.reconciledAt >= :startDate', { startDate: new Date(query.startDate) });
+            qb.andWhere('recon.reconciledAt >= :startDate', {
+                startDate: new Date(query.startDate),
+            });
         }
 
         if (query.endDate) {
-            qb.andWhere('recon.reconciledAt <= :endDate', { endDate: new Date(query.endDate) });
+            qb.andWhere('recon.reconciledAt <= :endDate', {
+                endDate: new Date(query.endDate),
+            });
         }
 
         return await qb.getMany();
@@ -356,13 +397,21 @@ export class ImpsService {
     async getUnmatchedTransactions() {
         const unmatchedCbs = await this.cbsTransactionRepo
             .createQueryBuilder('cbs')
-            .leftJoin('imps_reconciliations', 'recon', 'recon.cbsTransactionId = cbs.id')
+            .leftJoin(
+                'imps_reconciliations',
+                'recon',
+                'recon.cbsTransactionId = cbs.id',
+            )
             .where('recon.id IS NULL')
             .getMany();
 
         const unmatchedNpci = await this.npciTransactionRepo
             .createQueryBuilder('npci')
-            .leftJoin('imps_reconciliations', 'recon', 'recon.npciTransactionId = npci.id')
+            .leftJoin(
+                'imps_reconciliations',
+                'recon',
+                'recon.npciTransactionId = npci.id',
+            )
             .where('recon.id IS NULL')
             .getMany();
 

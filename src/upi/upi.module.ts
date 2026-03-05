@@ -7,15 +7,15 @@ import { UpiNpciTransaction } from './entities/upi-npci-transaction.entity';
 import { UpiReconciliation } from './entities/upi-reconciliation.entity';
 
 @Module({
-    imports: [
-        TypeOrmModule.forFeature([
-            UpiCbsTransaction,
-            UpiNpciTransaction,
-            UpiReconciliation,
-        ]),
-    ],
-    controllers: [UpiController],
-    providers: [UpiService],
-    exports: [UpiService],
+  imports: [
+    TypeOrmModule.forFeature([
+      UpiCbsTransaction,
+      UpiNpciTransaction,
+      UpiReconciliation,
+    ]),
+  ],
+  controllers: [UpiController],
+  providers: [UpiService],
+  exports: [UpiService],
 })
-export class UpiModule { }
+export class UpiModule {}
