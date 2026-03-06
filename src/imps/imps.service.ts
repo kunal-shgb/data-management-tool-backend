@@ -299,7 +299,7 @@ export class ImpsService {
 
         const targetDate = new Date(requestDate);
         targetDate.setHours(0, 0, 0, 0);
-
+        console.log('targetDate', targetDate);
         if (targetDate.getTime() >= today.getTime()) {
             throw new BadRequestException('Transaction date must be prior to the current date');
         }
@@ -313,10 +313,13 @@ export class ImpsService {
         const cbsTxns = await this.cbsTransactionRepo.find({
             where: { transactionDate: Between(dateStart, dateEnd) },
         });
-
+        console.log('dateStart', dateStart);
+        console.log('dateEnd', dateEnd);
         const npciTxns = await this.npciTransactionRepo.find({
             where: { transactionDate: Between(dateStart, dateEnd) },
         });
+        // console.log('cbsTxns', cbsTxns);
+        // console.log('npciTxns', npciTxns);
 
         const matchedNpciIds = new Set<number>();
 
@@ -362,6 +365,10 @@ export class ImpsService {
                 npci: unmatchedNpci
             }
         };
+
+        // return {
+        //     message: 'Reconciliation logic will be implemented soon'
+        // }
     }
 
     async getReconciliations(query: any) {

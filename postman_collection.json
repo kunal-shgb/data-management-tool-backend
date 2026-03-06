@@ -117,12 +117,11 @@
                         "method": "POST",
                         "header": [],
                         "url": {
-                            "raw": "{{baseUrl}}/api/imps/reconcile",
+                            "raw": "{{baseUrl}}/imps/reconcile",
                             "host": [
                                 "{{baseUrl}}"
                             ],
                             "path": [
-                                "api",
                                 "imps",
                                 "reconcile"
                             ]
@@ -136,12 +135,11 @@
                         "method": "GET",
                         "header": [],
                         "url": {
-                            "raw": "{{baseUrl}}/api/imps/reconciliations",
+                            "raw": "{{baseUrl}}/imps/reconciliations",
                             "host": [
                                 "{{baseUrl}}"
                             ],
                             "path": [
-                                "api",
                                 "imps",
                                 "reconciliations"
                             ]
@@ -155,12 +153,11 @@
                         "method": "GET",
                         "header": [],
                         "url": {
-                            "raw": "{{baseUrl}}/api/imps/unmatched",
+                            "raw": "{{baseUrl}}/imps/unmatched",
                             "host": [
                                 "{{baseUrl}}"
                             ],
                             "path": [
-                                "api",
                                 "imps",
                                 "unmatched"
                             ]
